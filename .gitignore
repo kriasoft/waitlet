@@ -1,0 +1,20 @@
+node_modules/
+
+# build and package output
+dist/
+*.tgz
+
+# test coverage
+coverage/
+
+# local scratch
+tmp/
+
+*.log
+.env*
+.DS_Store
+.idea/
+
+# VitePress
+docs/.vitepress/cache/
+docs/.vitepress/dist/

@@ -1,0 +1,50 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths: [docs/**, package.json, bun.lock, .github/workflows/docs.yml]
+  pull_request:
+    paths: [docs/**, package.json, bun.lock, .github/workflows/docs.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Let a running deploy finish; a newer push queues behind it.
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history: git dates for "Last updated" and sitemap <lastmod>.
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run docs:build
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/.vitepress/dist
+
+  # Served at https://kriasoft.com/waitlet/ through the org site's custom domain.
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

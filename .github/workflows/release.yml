@@ -1,0 +1,39 @@
+name: Release
+
+# Publishing a GitHub release whose tag matches package.json (v1.2.3) stages it on npm.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Must match the trusted publisher on npmjs.com; add required reviewers here to gate releases.
+    environment: npm
+    permissions:
+      contents: read
+      # OIDC token for npm trusted publishing: no NPM_TOKEN secret, provenance attached.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      # Latest Node 24: its npm has trusted publishing and `npm stage`.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          check-latest: true
+      - run: bun install --frozen-lockfile
+      - name: Check tag matches package.json
+        run: test "$TAG" = "v$(node -p 'require("./package.json").version')"
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+      - run: bun run lint
+      - run: bun run format:check
+      # Staged, not live: a maintainer approves with 2FA on npmjs.com or via `npm stage approve`,
+      # so a compromised workflow can't ship alone. prepublishOnly runs typecheck, tests and build.
+      - run: npm stage publish --tag ${{ github.event.release.prerelease && 'next' || 'latest' }}

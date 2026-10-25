@@ -1,0 +1,12 @@
+/* The hero image is the pool diagram, not a square logo: on narrow screens,
+   size it to its content and put it under the actions instead of above the title. */
+@media (max-width: 959px) {
+  .VPHero .image {
+    order: 3;
+    margin: 40px 0 0;
+  }
+  .VPHero .image-container {
+    width: auto;
+    height: auto;
+  }
+}

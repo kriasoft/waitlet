@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      # oxlint loads its TypeScript config through Node.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run format:check
+      - run: bun run typecheck
+      - run: bun run build
+
+  test:
+    # Stable names: the main ruleset requires these checks.
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The engines floor: the first release with unflagged node:sqlite. Type stripping
+          # is unflagged only from 22.18, so CLI tests (`node src/cli.ts`) need the flag here.
+          - { os: ubuntu-latest, node: "22.13", node-options: --experimental-strip-types }
+          - { os: ubuntu-latest, node: "24" }
+          # BSD `ps` differs from procps; liveness checks parse its output.
+          - { os: macos-latest, node: "24" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      # CLI tests run src/cli.ts under the `node` on PATH.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+      - run: bun install --frozen-lockfile
+      - run: bun test
+        env:
+          NODE_OPTIONS: ${{ matrix.node-options }}
